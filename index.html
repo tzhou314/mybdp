@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>键盘皮肤归档</title>
 <style>
-:root{--bg:#fbf6f9;--card:#fff;--ink:#3a2f38;--sub:#8b7a86;--line:#efe2ea;--pri:#d36f99;--pri-soft:#fbe6ef;--yes:#3f9a6f;--yes-soft:#e2f3e9;--no:#c25a65;--no-soft:#fbe7e8;--r18:#9b4fc4;--r18-soft:#f2e6fa;--na:#b9adb5;--shadow:0 1px 3px rgba(120,60,90,.08);color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#19151a;--card:#251f25;--ink:#f1e7ee;--sub:#a8979f;--line:#382f37;--pri:#e891b5;--pri-soft:#42283a;--yes:#7cc9a0;--yes-soft:#1e372b;--no:#ec8b93;--no-soft:#44262a;--r18:#c99be6;--r18-soft:#352441;--na:#6f6369;--shadow:none;color-scheme:dark}}
+:root{--bg:#fbf6f9;--card:#fff;--ink:#3a2f38;--sub:#8b7a86;--line:#efe2ea;--pri:#d36f99;--pri-soft:#fbe6ef;--yes:#3f9a6f;--yes-soft:#e2f3e9;--no:#c25a65;--no-soft:#fbe7e8;--r18:#9b4fc4;--r18-soft:#f2e6fa;--edge:#b0731c;--edge-soft:#fbefdc;--na:#b9adb5;--shadow:0 1px 3px rgba(120,60,90,.08);color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#19151a;--card:#251f25;--ink:#f1e7ee;--sub:#a8979f;--line:#382f37;--pri:#e891b5;--pri-soft:#42283a;--yes:#7cc9a0;--yes-soft:#1e372b;--no:#ec8b93;--no-soft:#44262a;--r18:#c99be6;--r18-soft:#352441;--edge:#e3b062;--edge-soft:#3d2f1a;--na:#6f6369;--shadow:none;color-scheme:dark}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;padding-bottom:90px}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:14px 16px 8px;border-bottom:1px solid var(--line)}
@@ -42,6 +42,7 @@ main{padding:12px 16px;max-width:720px;margin:0 auto}
 .b.y{background:var(--yes-soft);color:var(--yes)}
 .b.n{background:var(--no-soft);color:var(--no)}
 .b.r{background:var(--r18-soft);color:var(--r18)}
+.b.e{background:var(--edge-soft);color:var(--edge)}
 .b.u{border-color:var(--line);color:var(--na)}
 .notes{margin:8px 0 0;padding:0;list-style:none;font-size:13px;color:var(--sub)}
 .notes li{margin-top:2px}
@@ -153,14 +154,16 @@ const TEMPLATE = '<!doctype html>\n' + document.documentElement.outerHTML;
 const KEY = 'kbArchive.v1';
 const DIMS = [
   {k:'look',  label:'素材图好看', yes:'好看',   no:'一般',     cls:'y'},
-  {k:'r18',   label:'R18 / 擦边', yes:'R18',    no:'健全',     cls:'r'},
+  {k:'r18',   label:'尺度', opts:[['r18','R18','r'],['edge','擦边','e'],['clean','健全','y']]},
   {k:'sound', label:'音效好听',   yes:'音效好', no:'音效一般', cls:'y'},
   {k:'bigkey',label:'大按键',     yes:'大按键', no:'非大按键', cls:'y'},
   {k:'dark',  label:'暗黑模式用心', yes:'暗黑好看', no:'暗黑敷衍', cls:'y'},
 ];
+const GROUPS = {work:['clean','edge'], off:['r18','edge']};
+const GROUP_DESC = {work:'健全＋擦边', off:'R18＋擦边'};
 const PRESETS = [
-  {id:'work',  label:'上班能用', f:{r18:'no'}},
-  {id:'off',   label:'下班专用', f:{r18:'yes'}},
+  {id:'work',  label:'上班能用', f:{r18:'work'}},
+  {id:'off',   label:'下班用',   f:{r18:'off'}},
   {id:'night', label:'夜里好用', f:{dark:'yes'}},
   {id:'big',   label:'大按键',   f:{bigkey:'yes'}},
   {id:'todo',  label:'还没填完', f:{_todo:true}},
@@ -179,7 +182,15 @@ function save(){ try{ localStorage.setItem(KEY, JSON.stringify(store)); }catch(e
 function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('show'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('show'),1800); }
 
 function blankDims(){ const o={}; DIMS.forEach(d=>o[d.k]={v:null,note:''}); return o; }
-function norm(it){ it.dims = Object.assign(blankDims(), it.dims||{}); return it; }
+function norm(it){
+  it.dims = Object.assign(blankDims(), it.dims||{});
+  const r = it.dims.r18; if(typeof r.v==='boolean') it.dims.r18 = {...r, v: r.v ? 'r18' : 'clean'};
+  return it;
+}
+const segOpts = d => d.opts ? d.opts.map(([v,t])=>[v,t]) : [['yes','是'],['no','否']];
+const valKey = (d,v) => v===null||v===undefined ? 'none' : d.opts ? v : (v ? 'yes' : 'no');
+const keyVal = (d,k) => k==='none' ? null : d.opts ? k : k==='yes';
+const optLabel = (d,k) => d.opts ? (d.opts.find(o=>o[0]===k)||[,k])[1] : (k==='yes' ? '是' : '否');
 
 function mergeItems(incoming){
   const map = new Map(store.items.map(i=>[i.id,i]));
@@ -227,7 +238,7 @@ function buildFilters(){
     syncFilterUI(); render();
   };
   $('#filters').innerHTML = DIMS.map(d=>`<div class="frow"><label>${d.label}</label>
-    <div class="seg" data-k="${d.k}">${[['all','全部'],['yes','是'],['no','否'],['none','未填']].map(([v,t])=>`<button data-v="${v}">${t}</button>`).join('')}</div></div>`).join('')
+    <div class="seg" data-k="${d.k}">${[['all','全部'],...segOpts(d),['none','未填']].map(([v,t])=>`<button data-v="${v}">${t}</button>`).join('')}</div></div>`).join('')
     + `<div class="frow"><span></span><button class="chip" id="clearF">清除筛选</button></div>`;
   $('#filters').onclick = e=>{
     if(e.target.id==='clearF'){ DIMS.forEach(d=>filt[d.k]='all'); todoOnly=false; syncFilterUI(); render(); return; }
@@ -261,10 +272,9 @@ function match(it){
   }
   if(todoOnly && DIMS.every(d=>it.dims[d.k].v!==null)) return false;
   for(const d of DIMS){
-    const f = filt[d.k], v = it.dims[d.k].v;
-    if(f==='yes' && v!==true) return false;
-    if(f==='no' && v!==false) return false;
-    if(f==='none' && v!==null) return false;
+    const f = filt[d.k]; if(f==='all') continue;
+    const k = valKey(d, it.dims[d.k].v);
+    if(GROUPS[f] ? !GROUPS[f].includes(k) : k!==f) return false;
   }
   return true;
 }
@@ -272,7 +282,7 @@ function cardHTML(it){
   const badges = DIMS.map(d=>{
     const v = it.dims[d.k].v;
     if(v===null) return `<span class="b u">${d.label}？</span>`;
-    if(d.k==='r18') return `<span class="b ${v?'r':'y'}">${v?d.yes:d.no}</span>`;
+    if(d.opts){ const o = d.opts.find(x=>x[0]===v) || [v,v,'u']; return `<span class="b ${o[2]}">${o[1]}</span>`; }
     return `<span class="b ${v?'y':'n'}">${v?d.yes:d.no}</span>`;
   }).join('');
   const notes = DIMS.filter(d=>it.dims[d.k].note).map(d=>`<li><b>${d.label}：</b>${esc(it.dims[d.k].note)}</li>`);
@@ -305,7 +315,7 @@ $('#list').onclick = e=>{ const b=e.target.closest('.edit'); if(b) openEdit(b.da
 /* ---------- edit ---------- */
 function buildDimFields(){
   $('#dimFields').innerHTML = DIMS.map(d=>`<div class="dim"><div class="dim-h"><span>${d.label}</span>
-    <div class="seg" data-k="${d.k}"><button type="button" data-v="yes">是</button><button type="button" data-v="no">否</button><button type="button" data-v="none">未填</button></div></div>
+    <div class="seg" data-k="${d.k}">${[...segOpts(d),['none','未填']].map(([v,t])=>`<button type="button" data-v="${v}">${t}</button>`).join('')}</div></div>
     <textarea class="inp" rows="1" name="note_${d.k}" placeholder="备注（可空）"></textarea></div>`).join('');
   $('#dimFields').onclick = e=>{
     const b = e.target.closest('.seg button'); if(!b) return;
@@ -313,12 +323,12 @@ function buildDimFields(){
   };
 }
 function setSeg(k,v){
-  const val = v===true?'yes':v===false?'no':'none';
+  const val = valKey(DIMS.find(d=>d.k===k), v);
   document.querySelectorAll(`#dimFields .seg[data-k="${k}"] button`).forEach(b=>b.classList.toggle('on', b.dataset.v===val));
 }
 function getSeg(k){
   const b = document.querySelector(`#dimFields .seg[data-k="${k}"] button.on`);
-  return !b || b.dataset.v==='none' ? null : b.dataset.v==='yes';
+  return b ? keyVal(DIMS.find(d=>d.k===k), b.dataset.v) : null;
 }
 function openEdit(id){
   editingId = id || null;
@@ -362,7 +372,13 @@ function filterDesc(){
   const parts = [];
   const q = $('#q').value.trim(); if(q) parts.push(`搜「${q}」`);
   if(todoOnly) parts.push('没填完的');
-  DIMS.forEach(d=>{ const f=filt[d.k]; if(f==='yes') parts.push(d.yes); else if(f==='no') parts.push(d.no); else if(f==='none') parts.push(d.label+'未填'); });
+  DIMS.forEach(d=>{ const f=filt[d.k];
+    if(f==='all') return;
+    if(f==='none') parts.push(d.label+'未填');
+    else if(GROUP_DESC[f]) parts.push(GROUP_DESC[f]);
+    else if(d.opts) parts.push(optLabel(d,f));
+    else parts.push(f==='yes' ? d.yes : d.no);
+  });
   return parts.join('、');
 }
 function roll(){
