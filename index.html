@@ -43,6 +43,7 @@ main{padding:12px 16px;max-width:720px;margin:0 auto}
 .b.n{background:var(--no-soft);color:var(--no)}
 .b.r{background:var(--r18-soft);color:var(--r18)}
 .b.e{background:var(--edge-soft);color:var(--edge)}
+.b.m{background:var(--line);color:var(--sub)}
 .b.u{border-color:var(--line);color:var(--na)}
 .notes{margin:8px 0 0;padding:0;list-style:none;font-size:13px;color:var(--sub)}
 .notes li{margin-top:2px}
@@ -162,8 +163,8 @@ const TEMPLATE = '<!doctype html>\n' + document.documentElement.outerHTML;
 const KEY = 'kbArchive.v1';
 const DIMS = [
   {k:'look',  label:'素材图好看', yes:'好看',   no:'一般',     cls:'y'},
-  {k:'r18',   label:'尺度', opts:[['r18','R18','r'],['edge','擦边','e'],['clean','健全','y']]},
-  {k:'sound', label:'音效好听',   yes:'音效好', no:'音效一般', cls:'y'},
+  {k:'r18',   label:'尺度', legacy:{t:'r18',f:'clean'}, opts:[['r18','R18','r'],['edge','擦边','e'],['clean','健全','y']]},
+  {k:'sound', label:'音效', opts:[['good','好听','y','音效好听'],['mid','一般','m','音效一般']], legacy:{t:'good',f:'mid'}, alias:{bad:'mid'}},
   {k:'bigkey',label:'大按键',     yes:'大按键', no:'非大按键', cls:'y'},
   {k:'dark',  label:'暗黑模式用心', yes:'暗黑好看', no:'暗黑敷衍', cls:'y'},
 ];
@@ -192,13 +193,14 @@ function toast(t){ const el=$('#toast'); el.textContent=t; el.classList.add('sho
 function blankDims(){ const o={}; DIMS.forEach(d=>o[d.k]={v:null,note:''}); return o; }
 function norm(it){
   it.dims = Object.assign(blankDims(), it.dims||{});
-  const r = it.dims.r18; if(typeof r.v==='boolean') it.dims.r18 = {...r, v: r.v ? 'r18' : 'clean'};
+  DIMS.forEach(d=>{ const x = it.dims[d.k]; if(d.legacy && typeof x.v==='boolean') it.dims[d.k] = {...x, v: x.v ? d.legacy.t : d.legacy.f};
+    else if(d.alias && d.alias[x.v]) it.dims[d.k] = {...x, v: d.alias[x.v]}; });
   return it;
 }
 const segOpts = d => d.opts ? d.opts.map(([v,t])=>[v,t]) : [['yes','是'],['no','否']];
 const valKey = (d,v) => v===null||v===undefined ? 'none' : d.opts ? v : (v ? 'yes' : 'no');
 const keyVal = (d,k) => k==='none' ? null : d.opts ? k : k==='yes';
-const optLabel = (d,k) => d.opts ? (d.opts.find(o=>o[0]===k)||[,k])[1] : (k==='yes' ? '是' : '否');
+const optLabel = (d,k) => d.opts ? (o=>o[3]||o[1])(d.opts.find(o=>o[0]===k)||[,k]) : (k==='yes' ? '是' : '否');
 
 function mergeItems(incoming){
   const map = new Map(store.items.map(i=>[i.id,i]));
@@ -290,7 +292,7 @@ function cardHTML(it){
   const badges = DIMS.map(d=>{
     const v = it.dims[d.k].v;
     if(v===null) return `<span class="b u">${d.label}？</span>`;
-    if(d.opts){ const o = d.opts.find(x=>x[0]===v) || [v,v,'u']; return `<span class="b ${o[2]}">${o[1]}</span>`; }
+    if(d.opts){ const o = d.opts.find(x=>x[0]===v) || [v,v,'u']; return `<span class="b ${o[2]}">${o[3]||o[1]}</span>`; }
     return `<span class="b ${v?'y':'n'}">${v?d.yes:d.no}</span>`;
   }).join('');
   const notes = DIMS.filter(d=>it.dims[d.k].note).map(d=>`<li><b>${d.label}：</b>${esc(it.dims[d.k].note)}</li>`);
