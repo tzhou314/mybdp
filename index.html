@@ -67,7 +67,16 @@ dialog::backdrop{background:rgba(30,15,25,.45)}
 .inp{width:100%;padding:9px 11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-size:16px;font-family:inherit}
 textarea.inp{resize:vertical;min-height:38px}
 .pair{display:flex;gap:8px}
-.pair>div{flex:1}
+.pair>div{flex:1;min-width:0}
+.combo{position:relative;display:flex}
+.combo .inp{padding-right:38px}
+.combo .tog{position:absolute;right:2px;top:2px;bottom:2px;width:34px;border:0;background:transparent;color:var(--sub);font-size:14px}
+.pomenu{display:none;position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:20;background:var(--card);border:1px solid var(--line);border-radius:10px;max-height:220px;overflow-y:auto;box-shadow:0 6px 18px rgba(60,20,40,.15);padding:4px 0;margin:0;list-style:none}
+.pomenu.open{display:block}
+.pomenu li{padding:9px 12px;font-size:15px;cursor:pointer}
+.pomenu li:active,.pomenu li.hl{background:var(--pri-soft)}
+.pomenu li .n{color:var(--sub);font-size:12px;margin-left:6px}
+.pomenu .none{color:var(--sub);font-size:13px;cursor:default}
 .dim{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
 .dim-h{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
 .dim-h span{font-size:14px;font-weight:600}
@@ -121,12 +130,11 @@ textarea.inp{resize:vertical;min-height:38px}
 </div></dialog>
 
 <dialog id="editDlg"><form class="dlg" id="editForm" method="dialog">
-  <h2 id="editTitle">添加键盘</h2>
+  <h2 id="editTitle" tabindex="-1" autofocus style="outline:none">添加键盘</h2>
   <div class="pair">
-    <div class="field"><label>po</label><input class="inp" name="po" list="poList" autocomplete="off"></div>
+    <div class="field"><label>po</label><div class="combo"><input class="inp" name="po" id="poInp" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="tog" id="poTog" aria-label="选择已有 po">▾</button><ul class="pomenu" id="poMenu"></ul></div></div>
     <div class="field"><label>键盘名</label><input class="inp" name="name" autocomplete="off"></div>
   </div>
-  <datalist id="poList"></datalist>
   <div id="dimFields"></div>
   <div class="field"><label>其他备注</label><textarea class="inp" name="other" rows="2" placeholder="不典型的问题都写这里"></textarea></div>
   <div class="btns">
@@ -338,8 +346,7 @@ function openEdit(id){
   DIMS.forEach(d=>{ setSeg(d.k, it.dims[d.k].v); f['note_'+d.k].value = it.dims[d.k].note||''; });
   $('#editTitle').textContent = id ? '编辑键盘' : '添加键盘';
   $('#delBtn').style.display = id ? '' : 'none';
-  const pos = [...new Set(store.items.map(x=>x.po).filter(Boolean))].sort();
-  $('#poList').innerHTML = pos.map(p=>`<option value="${esc(p)}">`).join('');
+  closePoMenu();
   $('#editDlg').showModal();
 }
 $('#addBtn').onclick = ()=>openEdit();
@@ -365,6 +372,37 @@ $('#delBtn').onclick = ()=>{
   if(!confirm(`删除「${it.po?it.po+'の':''}${it.name}」？`)) return;
   store.items = store.items.filter(x=>x.id!==editingId); save(); render(); $('#editDlg').close(); toast('已删除');
 };
+
+/* ---------- po combo ---------- */
+function poCounts(){
+  const m = new Map(); store.items.forEach(x=>{ if(x.po) m.set(x.po,(m.get(x.po)||0)+1); });
+  return [...m.entries()].sort((a,b)=>a[0].localeCompare(b[0],'zh-Hans-CN'));
+}
+function openPoMenu(showAll){
+  const q = showAll ? '' : $('#poInp').value.trim().toLowerCase();
+  const all = poCounts();
+  const list = q ? all.filter(([p])=>p.toLowerCase().includes(q)) : all;
+  const menu = $('#poMenu');
+  if(!all.length){ menu.innerHTML = '<li class="none">还没有填过的 po，直接手动输入</li>'; }
+  else if(!list.length){ closePoMenu(); return; }
+  else if(q && list.length===1 && list[0][0].toLowerCase()===q){ closePoMenu(); return; }
+  else menu.innerHTML = list.map(([p,n])=>`<li data-po="${esc(p)}">${esc(p)}<span class="n">${n} 款</span></li>`).join('');
+  menu.classList.add('open');
+}
+function closePoMenu(){ $('#poMenu').classList.remove('open'); }
+$('#poInp').addEventListener('focus', ()=>openPoMenu(false));
+$('#poInp').addEventListener('input', ()=>openPoMenu(false));
+$('#poTog').addEventListener('mousedown', e=>e.preventDefault());
+$('#poTog').addEventListener('click', ()=>{
+  if($('#poMenu').classList.contains('open')) closePoMenu(); else openPoMenu(true);
+});
+$('#poMenu').addEventListener('mousedown', e=>e.preventDefault());
+$('#poMenu').addEventListener('click', e=>{
+  const li = e.target.closest('li[data-po]'); if(!li) return;
+  $('#poInp').value = li.dataset.po; closePoMenu(); $('#poInp').blur();
+});
+$('#editForm').addEventListener('click', e=>{ if(!e.target.closest('.combo')) closePoMenu(); });
+$('#poInp').addEventListener('blur', ()=>setTimeout(closePoMenu,150));
 
 /* ---------- roll ---------- */
 let lastRoll = null, rollPick = null, spinning = false;
